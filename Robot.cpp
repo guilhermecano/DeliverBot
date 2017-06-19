@@ -222,8 +222,7 @@ void Robot::srt(){
     }
 
     if (minDist < 0.3){
-        currentNode->x = robotPosition[0];
-        currentNode->y = robotPosition[1];
+        currentNode = getParent(tree);
     }
 
     float alfa, beta, p, dx, dy;
