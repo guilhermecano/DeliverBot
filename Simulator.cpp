@@ -45,10 +45,14 @@ int Simulator::getHandle(std::string name)
 
 }
 
-int Simulator::readProximitySensor(simxInt sensorHandle, simxUChar *state, float *coord)
+int Simulator::readProximitySensor(simxInt sensorHandle, simxUChar *state, float *coord, int init)
 {
-    if (id != -1)
-        simxReadProximitySensor(id,sensorHandle,state,coord,NULL,NULL,simx_opmode_buffer);
+    if (id != -1){
+        if(init == 0)
+            simxReadProximitySensor(id,sensorHandle,NULL,NULL,NULL,NULL,simx_opmode_streaming);
+        else
+            simxReadProximitySensor(id,sensorHandle,state,coord,NULL,NULL,simx_opmode_buffer);
+    }
     return 1;
 }
 
