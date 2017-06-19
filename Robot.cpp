@@ -220,21 +220,12 @@ void Robot::srt(){
           minDist = sonarReadings[i];
         }
     }
-    //obstacle is close
-    if(sonarReadings[indexMin] < 0.1 && sonarReadings[indexMin] > 0 && indexMin != -1){
-        if(!robotObstacleFound){
-            robotObstacleFound = true;
-            robotTurning =  rand() % 2;
-            currentNode = getParent(tree);
-            std::cout << "OBSTACLE CLOSE -> GOTO PARENT : " << currentNode->x << ", " << currentNode->y << std::endl;
-        }
 
-    }else{
-        if(robotObstacleFound){
-            robotObstacleFound = false;
-            robotTurning = TURNING_UNDEFINED;
-        }
+    if (minDist < 0.3){
+        currentNode->x = robotPosition[0];
+        currentNode->y = robotPosition[1];
     }
+
     float alfa, beta, p, dx, dy;
     float v, w, kRho = 30, kAlfa = 40, kBeta= -5;
     dx = currentNode->x - robotPosition[0];
@@ -251,28 +242,21 @@ void Robot::srt(){
 
     float delta = atan2(dy,dx)*atan2(dy,dx) - robotOrientation[2]*robotOrientation[2];
 
-//    if(robotTurning == TURNING_UNDEFINED){
-//        if(delta < 0){
-//            robotTurning = TURNING_LEFT;
-//        }else{
-//            robotTurning = TURNING_RIGHT;
-//        }
-//    }
-//    if(robotTurning == TURNING_RIGHT){
-//        w = -20;
-//    }else{
-//        w = 20;
-//    }
-//    std::cout << "diff = " << delta << " alfa = "<< alfa <<" dist = " << p << std::endl;
-//    if(delta*delta < MARGIN && !robotObstacleFound){
-//        robotTurning = TURNING_UNDEFINED;
-//        w = 0;
-//    }else{
-//        v = 0;
-//    }
+    if(alfa*alfa < MARGIN
+            ){
+        //reto
+        w = 0;
+    }else{
+        //
+        v = 0;
+    }
+
+    if(p < LIMIAR && w == 0){
+        v = 1.0;
+    }
+//    std::cout << "alfa*alfa = " << alfa*alfa << " p: " << p << std::endl;
 
     if(p < LIMIAR){
-
         int i = 0;
         bool foundNewQ = false;
         float q,x,y,r;
@@ -380,8 +364,8 @@ bool Robot::isVisited(node *tree, float x, float y){
         bool check = false;
 
         if (tree->child != NULL){
-            if (currentNode->x >= x - MARGIN && currentNode->x <= x + MARGIN &&
-                currentNode->y >= y - MARGIN && currentNode->y <= y + MARGIN){
+            if (currentNode->x >= x - VISITED_MARGIN && currentNode->x <= x + VISITED_MARGIN &&
+                currentNode->y >= y - VISITED_MARGIN && currentNode->y <= y + VISITED_MARGIN){
                 return true;
             } else {
                 check = isVisited(tree->child,x,y);
@@ -393,8 +377,8 @@ bool Robot::isVisited(node *tree, float x, float y){
             bool parent_child = false;
 
             while (tree->next != NULL){
-                if (currentNode->x >= x - MARGIN && currentNode->x <= x + MARGIN &&
-                    currentNode->y >= y - MARGIN && currentNode->y <= y + MARGIN){
+                if (currentNode->x >= x - VISITED_MARGIN && currentNode->x <= x + VISITED_MARGIN &&
+                    currentNode->y >= y - VISITED_MARGIN && currentNode->y <= y + VISITED_MARGIN){
                     return true;
                 } else {
                   parent_child = isVisited(tree->next,x,y);
