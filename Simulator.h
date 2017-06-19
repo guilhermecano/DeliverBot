@@ -18,7 +18,7 @@ public:
     void pause();
     void resume();
     int getHandle(std::string name);
-    int readProximitySensor(simxInt sensorHandle, simxUChar *state, float *coord);
+    int readProximitySensor(simxInt sensorHandle, simxUChar *state, float *coord, int init);
     int getObjectPosition(simxInt sensorHandle, float *coord);
     int getObjectOrientation(simxInt sensorHandle, float *coord);
     int getJointPosition(simxInt jointHandle, float *coord);

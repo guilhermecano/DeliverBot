@@ -20,9 +20,9 @@ int main(int argc, char *argv[])
 
     robot = new Robot(vrep, "Pioneer_p3dx");
 
-    for (int i=0; i<3000; ++i)
-    {
-        std::cout << "Here we go... " << i << std::endl;
+//    for (int i=0; i<30000; ++i)
+    while(1){
+        //std::cout << "Here we go... " << i << std::endl;
         robot->update();
         robot->writeGT();
         robot->writeSonars();

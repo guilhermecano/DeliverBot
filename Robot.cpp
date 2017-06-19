@@ -37,8 +37,9 @@ Robot::Robot(Simulator *sim, std::string name) {
             std::cout <<  "Error on connecting to sensor " + i+1 << std::endl;
         else
         {
-            std::cout << "Connected to sensor\n";
+//            std::cout << "Connected to sensor" << std::endl;
         }
+        sim->readProximitySensor(sonarHandle[i],NULL,NULL,0);
     }
 
     /* Get the robot current absolute position */
@@ -56,31 +57,38 @@ Robot::Robot(Simulator *sim, std::string name) {
     /* Get the encoder data */
     sim->getJointPosition(motorHandle[0],&encoder[0]);
     sim->getJointPosition(motorHandle[1],&encoder[1]);
-    std::cout << encoder[0] << std::endl;
-    std::cout << encoder[1] << std::endl;
-
+    tree = newNode(robotPosition[0],robotPosition[1]);
+    currentNode = tree;
 }
 
 void Robot::update() {
-    drive(10,5);
+
     updateSensors();
     updatePose();
+    if(robotState == EXPLORATION){
+        srt();
+    }else{
+        std::cout << "Exploration done" << std::endl;
+        drive(0,0);
+    }
 }
 
 void Robot::updateSensors()
 {
+    node *treeB = tree;
+    node *currentNodeB = currentNode;
+
     /* Update sonars */
     for(int i = 0; i < NUM_SONARS; i++)
     {
         simxUChar state;       // sensor state
         simxFloat coord[3];    // detected point coordinates [only z matters]
-
         /* simx_opmode_streaming -> Non-blocking mode */
 
         /* read the proximity sensor
          * detectionState: pointer to the state of detection (0=nothing detected)
          * detectedPoint: pointer to the coordinates of the detected point (relative to the frame of reference of the sensor) */
-        if (sim->readProximitySensor(sonarHandle[i],&state,coord)==1)
+        if (sim->readProximitySensor(sonarHandle[i],&state,coord,1)==1)
         {
             if(state > 0)
                 sonarReadings[i] = coord[2];
@@ -88,16 +96,19 @@ void Robot::updateSensors()
                 sonarReadings[i] = -1;
         }
     }
+    //std::cout << "Connected to sensor" << std::endl;
     /* Update encoder data */
     lastEncoder[0] = encoder[0];
     lastEncoder[1] = encoder[1];
 
     /* Get the encoder data */
     if (sim->getJointPosition(motorHandle[0], &encoder[0]) == 1)
-        std::cout << "ok left enconder"<< encoder[0] << std::endl;  // left
+        //std::cout << "ok left enconder"<< encoder[0] << std::endl;  // left
     if (sim->getJointPosition(motorHandle[1], &encoder[1]) == 1)
-        std::cout << "ok right enconder"<< encoder[1] << std::endl;  // right
+        //std::cout << "ok right enconder"<< encoder[1] << std::endl;  // right
 
+    tree = treeB;
+    currentNode = currentNodeB;
 }
 
 void Robot::updatePose()
@@ -136,7 +147,7 @@ void Robot::writeGT() {
             fclose(data);
           }
           else
-            std::cout << "Unable to open file";
+            std::cout << "Unable to open file" << std::endl;
     }
 }
 
@@ -189,4 +200,255 @@ double Robot::vLToDrive(double vLinear, double vAngular)
 {
     return (((2*vLinear)-(L*vAngular))/2*R);
 
+}
+
+void Robot::srt(){
+    float minDist = 999;
+    int indexMin = -1;
+    float minLeft = 999;
+    float minRight = 999;
+
+    for (int i=0; i<8; ++i){
+        if(sonarReadings[i] > 0 && sonarReadings[i] < minLeft && i < 4){
+            minLeft = sonarReadings[i];
+        }
+        if(sonarReadings[i] > 0 && sonarReadings[i] < minRight && i >= 4){
+            minRight = sonarReadings[i];
+        }
+        if(sonarReadings[i] > 0 && sonarReadings[i] < minDist){
+          indexMin = i;
+          minDist = sonarReadings[i];
+        }
+    }
+    //obstacle is close
+    if(sonarReadings[indexMin] < 0.1 && sonarReadings[indexMin] > 0 && indexMin != -1){
+        if(!robotObstacleFound){
+            robotObstacleFound = true;
+            robotTurning =  rand() % 2;
+            currentNode = getParent(tree);
+            std::cout << "OBSTACLE CLOSE -> GOTO PARENT : " << currentNode->x << ", " << currentNode->y << std::endl;
+        }
+
+    }else{
+        if(robotObstacleFound){
+            robotObstacleFound = false;
+            robotTurning = TURNING_UNDEFINED;
+        }
+    }
+    float alfa, beta, p, dx, dy;
+    float v, w, kRho = 30, kAlfa = 40, kBeta= -5;
+    dx = currentNode->x - robotPosition[0];
+    dy = currentNode->y - robotPosition[1];
+    p = dx*dx + dy*dy;
+    alfa = atan2(dy,dx) - robotOrientation[2] ;
+    beta = - robotOrientation[2] - alfa;
+    v = kRho*p;
+    if(v>20)
+    {
+        v = 20;
+    }
+    w = kAlfa*alfa + kBeta*beta;
+
+    float delta = atan2(dy,dx)*atan2(dy,dx) - robotOrientation[2]*robotOrientation[2];
+
+//    if(robotTurning == TURNING_UNDEFINED){
+//        if(delta < 0){
+//            robotTurning = TURNING_LEFT;
+//        }else{
+//            robotTurning = TURNING_RIGHT;
+//        }
+//    }
+//    if(robotTurning == TURNING_RIGHT){
+//        w = -20;
+//    }else{
+//        w = 20;
+//    }
+//    std::cout << "diff = " << delta << " alfa = "<< alfa <<" dist = " << p << std::endl;
+//    if(delta*delta < MARGIN && !robotObstacleFound){
+//        robotTurning = TURNING_UNDEFINED;
+//        w = 0;
+//    }else{
+//        v = 0;
+//    }
+
+    if(p < LIMIAR){
+
+        int i = 0;
+        bool foundNewQ = false;
+        float q,x,y,r;
+        int theta;
+        while(i < MAX_I && foundNewQ == false){
+            theta = rand() % 8; //0 - 7
+            r = sonarReadings[theta];
+            if(r < 0){
+                r = MAX_SONAR_READING;
+            }
+
+            q = r*ALPHA;
+            x = robotPosition[0] + (q) * cos(robotOrientation[2] + (sonarAngles[theta]*M_PI)/180);
+            y = robotPosition[1] + (q) * sin(robotOrientation[2] + (sonarAngles[theta]*M_PI)/180);
+
+            if(q >= DMIN && !isVisited(tree,x,y)){
+                //q is ok
+                foundNewQ = true;
+                break;
+            }
+            i++;
+        }
+
+        if(foundNewQ == false){
+            //goto parent node
+            currentNode = getParent(tree);
+            std::cout << "NO Q FOUND -> GOTO PARENT  : " << currentNode->x << ", " << currentNode->y << std::endl;
+
+        }else{
+            std::cout << "NEW NODE FOUND: (" << x << "," << y << ")" << std::endl;
+            float distancex = (x - robotPosition[0]) * (x - robotPosition[0]);
+            float distancey = (y - robotPosition[1]) * (y - robotPosition[1]);
+
+            float distance = sqrt(distancex - distancey);
+
+//            std::cout << "sonar dist: "<< r << " move:" <<  distance << std::endl;
+            //new node
+            if(currentNode->child == NULL){
+                currentNode = addChild(currentNode, x,y);
+            }else{
+                currentNode = addSibling(currentNode, x,y);
+            }
+        }
+    }else{
+        drive(v,w);
+    }
+}
+
+node * Robot::newNode(float x, float y)
+{
+    node *new_node = (node*)malloc(sizeof(node));
+
+    if ( new_node ) {
+        new_node->next = NULL;
+        new_node->child = NULL;
+        new_node->x = x;
+        new_node->y = y;
+    }
+
+    return new_node;
+}
+
+node * Robot::addSibling(node * n, float x, float y)
+{
+    if ( n == NULL )
+        return NULL;
+
+    while (n->next)
+        n = n->next;
+
+    return (n->next = newNode(x,y));
+}
+
+node * Robot::addChild(node * n, float x, float y)
+{
+    if ( n == NULL )
+        return NULL;
+
+    if ( n->child )
+        return addSibling(n->child, x,y);
+    else
+        return (n->child = newNode(x,y));
+}
+
+void Robot::printTree(node * n)
+{
+    if ( n == NULL ){
+        return;
+    }else{
+        std::cout << " x= "<< n->x <<" y= "<< n->y << std::endl;
+        while(n->next){
+            std::cout << " x= "<< tree->x <<" y= "<< tree->y << std::endl;
+            n = n->next;
+        }
+
+        printTree(n->child);
+
+    }
+}
+
+bool Robot::isVisited(node *tree, float x, float y){
+    if ( tree == NULL ){
+        return NULL;
+    }else{
+        bool check = false;
+
+        if (tree->child != NULL){
+            if (currentNode->x >= x - MARGIN && currentNode->x <= x + MARGIN &&
+                currentNode->y >= y - MARGIN && currentNode->y <= y + MARGIN){
+                return true;
+            } else {
+                check = isVisited(tree->child,x,y);
+            }
+        }
+
+        if (check == false)
+        {
+            bool parent_child = false;
+
+            while (tree->next != NULL){
+                if (currentNode->x >= x - MARGIN && currentNode->x <= x + MARGIN &&
+                    currentNode->y >= y - MARGIN && currentNode->y <= y + MARGIN){
+                    return true;
+                } else {
+                  parent_child = isVisited(tree->next,x,y);
+
+                  if (parent_child == false)
+                  {
+                    tree = tree->next;
+                  } else {
+                      return parent_child;
+                  }
+                }
+            }
+        }
+        return check;
+    }
+}
+
+node * Robot::getParent(node *tree){
+    if ( tree == NULL ){
+        return NULL;
+    } else {
+        node * parent = NULL;
+
+        if (tree->child != NULL){
+            if (currentNode->x == tree->child->x &&
+                currentNode->y == tree->child->y){
+                parent = tree;
+            } else {
+                parent = getParent(tree->child);
+            }
+        }
+
+        if (parent == NULL)
+        {
+            parent = tree;
+            node * parent_child = NULL;
+
+            while (tree->next != NULL){
+                if (currentNode->x == tree->next->x &&
+                    currentNode->y == tree->next->y){
+                    return parent;
+                } else {
+                  parent_child = getParent(tree->next);
+
+                  if (parent_child == NULL)
+                  {
+                    tree = tree->next;
+                  } else {
+                      return parent_child;
+                  }
+                }
+            }
+        }
+
+        return parent;
+    }
 }
