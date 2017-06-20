@@ -211,7 +211,7 @@ void Robot::srt(){
     float minLeft = 999;
     float minRight = 999;
 
-    for (int i=3; i<5; ++i){
+    for (int i=2; i<7; ++i){
         if(sonarReadings[i] > 0 && sonarReadings[i] < minLeft && i < 4){
             minLeft = sonarReadings[i];
         }
