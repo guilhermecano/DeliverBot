@@ -26,6 +26,7 @@ int main(int argc, char *argv[])
         robot->update();
         robot->writeGT();
         robot->writeSonars();
+        robot->writePointsPerSonars();
         extApi_sleepMs(50);
     }
     vrep->disconnect();

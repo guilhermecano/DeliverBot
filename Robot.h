@@ -49,20 +49,27 @@ public:
     void printTree(node * root);
     bool isVisited(node *root, float x, float y);
     node * getParent(node *tree);
+    void writePointsPerSonars();
 private:
     const float L = 0.381;                                   // distance between wheels
     const float R    = 0.0975;                                  // wheel radius
-    const float VISITED_MARGIN = 0.5;
     const float MARGIN = 0.1;
     const float LIMIAR = 0.1;
     const int EXPLORATION = 1;
     const int EXPLORATION_DONE = 2;
-    const int MAX_I = 8;
+    const float VISITED_MARGIN = 0.7;
+    const float OBSTACLE_MARGIN = 0.2;
+    const int TURNING_RIGHT = 0;
+    const int TURNING_LEFT = 1;
+    const int TURNING_UNDEFINED = 2;
+    const int MAX_I = 50;
     const float MAX_SONAR_READING = 1.0;
-    const float ALPHA = 0.9;
+    const float ALPHA = 0.8;
     const float DMIN = 0.7;
-    int robotState = EXPLORATION;
 
+    int robotState = EXPLORATION;
+    int robotTurning = TURNING_UNDEFINED;
+    int robotObstacleFound = false;
 
     std::string name;
     Simulator *sim;

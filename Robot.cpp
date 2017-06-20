@@ -12,6 +12,9 @@ Robot::Robot(Simulator *sim, std::string name) {
         data =  fopen("sonar.txt", "wt");
         if (data!=NULL)
             fclose(data);
+        data =  fopen("points.txt", "wt");
+            if (data!=NULL)
+              fclose(data);
     }
 
     /* Get handles of sensors and actuators */
@@ -208,7 +211,7 @@ void Robot::srt(){
     float minLeft = 999;
     float minRight = 999;
 
-    for (int i=0; i<8; ++i){
+    for (int i=3; i<5; ++i){
         if(sonarReadings[i] > 0 && sonarReadings[i] < minLeft && i < 4){
             minLeft = sonarReadings[i];
         }
@@ -220,13 +223,23 @@ void Robot::srt(){
           minDist = sonarReadings[i];
         }
     }
-
-    if (minDist < 0.3){
-        currentNode = getParent(tree);
+    //obstacle is close
+    if(minDist < OBSTACLE_MARGIN && minDist > 0){
+        if(!robotObstacleFound){
+            robotObstacleFound = true;
+            robotTurning =  rand() % 2;
+            currentNode->x = robotPosition[0];
+            currentNode->y = robotLastPosition[1];
+            std::cout << "OBSTACLE CLOSE: " << std::endl;
+        }
+    }else{
+        if(robotObstacleFound){
+            robotObstacleFound = false;
+            robotTurning = TURNING_UNDEFINED;
+        }
     }
-
     float alfa, beta, p, dx, dy;
-    float v, w, kRho = 30, kAlfa = 40, kBeta= -5;
+    float v, w, kRho = 50, kAlfa = 40, kBeta= -5;
     dx = currentNode->x - robotPosition[0];
     dy = currentNode->y - robotPosition[1];
     p = dx*dx + dy*dy;
@@ -241,9 +254,25 @@ void Robot::srt(){
 
     float delta = atan2(dy,dx)*atan2(dy,dx) - robotOrientation[2]*robotOrientation[2];
 
+    if(robotTurning == TURNING_UNDEFINED){
+        if(delta < 0){
+              robotTurning = TURNING_LEFT;
+        }else{
+              robotTurning = TURNING_RIGHT;
+        }
+    }
+
+    if(robotTurning == TURNING_RIGHT){
+        w = -20;
+    }else{
+        w = 20;
+    }
+
     if(alfa*alfa < MARGIN
+            //&& !robotObstacleFound
             ){
         //reto
+        robotTurning = TURNING_UNDEFINED;
         w = 0;
     }else{
         //
@@ -253,7 +282,7 @@ void Robot::srt(){
     if(p < LIMIAR && w == 0){
         v = 1.0;
     }
-//    std::cout << "alfa*alfa = " << alfa*alfa << " p: " << p << std::endl;
+//    std::cout << "delta*delta = " << delta*delta << " p: " << p << std::endl;
 
     if(p < LIMIAR){
         int i = 0;
@@ -272,7 +301,6 @@ void Robot::srt(){
             y = robotPosition[1] + (q) * sin(robotOrientation[2] + (sonarAngles[theta]*M_PI)/180);
 
             if(q >= DMIN && !isVisited(tree,x,y)){
-                //q is ok
                 foundNewQ = true;
                 break;
             }
@@ -286,12 +314,6 @@ void Robot::srt(){
 
         }else{
             std::cout << "NEW NODE FOUND: (" << x << "," << y << ")" << std::endl;
-            float distancex = (x - robotPosition[0]) * (x - robotPosition[0]);
-            float distancey = (y - robotPosition[1]) * (y - robotPosition[1]);
-
-            float distance = sqrt(distancex - distancey);
-
-//            std::cout << "sonar dist: "<< r << " move:" <<  distance << std::endl;
             //new node
             if(currentNode->child == NULL){
                 currentNode = addChild(currentNode, x,y);
@@ -363,8 +385,8 @@ bool Robot::isVisited(node *tree, float x, float y){
         bool check = false;
 
         if (tree->child != NULL){
-            if (currentNode->x >= x - VISITED_MARGIN && currentNode->x <= x + VISITED_MARGIN &&
-                currentNode->y >= y - VISITED_MARGIN && currentNode->y <= y + VISITED_MARGIN){
+            if (tree->x >= x - VISITED_MARGIN && tree->x <= x + VISITED_MARGIN &&
+                tree->y >= y - VISITED_MARGIN && tree->y <= y + VISITED_MARGIN){
                 return true;
             } else {
                 check = isVisited(tree->child,x,y);
@@ -373,20 +395,18 @@ bool Robot::isVisited(node *tree, float x, float y){
 
         if (check == false)
         {
-            bool parent_child = false;
-
             while (tree->next != NULL){
-                if (currentNode->x >= x - VISITED_MARGIN && currentNode->x <= x + VISITED_MARGIN &&
-                    currentNode->y >= y - VISITED_MARGIN && currentNode->y <= y + VISITED_MARGIN){
+                if (tree->x >= x - VISITED_MARGIN && tree->x <= x + VISITED_MARGIN &&
+                    tree->y >= y - VISITED_MARGIN && tree->y <= y + VISITED_MARGIN){
                     return true;
                 } else {
-                  parent_child = isVisited(tree->next,x,y);
+                  check = isVisited(tree->next,x,y);
 
-                  if (parent_child == false)
+                  if (check == false)
                   {
                     tree = tree->next;
                   } else {
-                      return parent_child;
+                      return check;
                   }
                 }
             }
@@ -434,4 +454,24 @@ node * Robot::getParent(node *tree){
 
         return parent;
     }
+}
+
+void Robot::writePointsPerSonars() {
+  float x, y;
+  if (LOG) {
+    FILE *data =  fopen("points.txt", "at");
+
+    if (data!=NULL){
+      // Somente 1 sonar por enquanto, para testes
+      for (int i=0; i<8; ++i){
+        if(sonarReadings[i] > 0){
+          x = robotPosition[0] + (sonarReadings[i] + R) * cos(robotOrientation[2] + (sonarAngles[i]*M_PI)/180);
+          y = robotPosition[1] + (sonarReadings[i] + R) * sin(robotOrientation[2] + (sonarAngles[i]*M_PI)/180);
+          fprintf(data, "%.4f \t %.4f \n", x, y);
+        }
+      }
+      fflush(data);
+      fclose(data);
+    }
+  }
 }
