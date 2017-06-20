@@ -255,7 +255,7 @@ void Robot::srt(){
     float delta = atan2(dy,dx)*atan2(dy,dx) - robotOrientation[2]*robotOrientation[2];
 
     if(robotTurning == TURNING_UNDEFINED){
-        if(delta < 0){
+        if(w > 0){
               robotTurning = TURNING_LEFT;
         }else{
               robotTurning = TURNING_RIGHT;
