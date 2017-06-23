@@ -568,23 +568,23 @@ bool Robot::isVisited(node *tree, float x, float y){
         bool check = false;
 
         float min = 999, delta = 999, minX = 0, minY = 0;
+        for (int j = 0; j < 180 ; j++){
+            delta = distance(tree->coordinates[j].x,tree->coordinates[j].y,x,y);
+            if( delta < min ){
+                min = delta;
+                minX = tree->coordinates[j].x;
+                minY = tree->coordinates[j].y;
+            }
+        }
+        float distToNode = distance(tree->x,tree->y,minX,minY);
+        float distToPoint = distance(tree->x,tree->y,x,y);
+
+        if(distToNode > distToPoint && currentNode->x != tree->x && currentNode->y != tree->y){
+            return true;
+        }
+
         if (tree->child != NULL){
-
-            for (int j = 0; j < 180 ; j++){
-                delta = distance(tree->coordinates[j].x,tree->coordinates[j].y,x,y);
-                if( delta < min ){
-                    min = delta;
-                    minX = tree->coordinates[j].x;
-                    minY = tree->coordinates[j].y;
-                }
-            }
-            float distToNode = distance(tree->x,tree->y,minX,minY);
-            float distToPoint = distance(tree->x,tree->y,x,y);
-
-            if(distToNode > distToPoint){
-                return true;
-            }
-
+            check = isVisited(tree->child,x,y);
         }
 
         if (check == false)
@@ -603,17 +603,17 @@ bool Robot::isVisited(node *tree, float x, float y){
                 float distToNode = distance(tree->x,tree->y,minX,minY);
                 float distToPoint = distance(tree->x,tree->y,x,y);
 
-                if(distToNode > distToPoint){
+                if(distToNode > distToPoint && currentNode->x != tree->x && currentNode->y != tree->y){
                     return true;
                 }else{
-                        check = isVisited(tree->next,x,y);
+                    check = isVisited(tree->next,x,y);
 
-                        if (check == false)
-                        {
-                          tree = tree->next;
-                        } else {
-                            return check;
-                        }
+                    if (check == false)
+                    {
+                      tree = tree->next;
+                    } else {
+                        return check;
+                    }
                   }
             }
         }
