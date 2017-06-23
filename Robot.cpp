@@ -102,7 +102,7 @@ void Robot::update() {
     updateSensors();
     updatePose();
     if(robotState == EXPLORATION){
-        obstacleCheck();
+//        obstacleCheck();
         srt();
     }else{
         std::cout << "Exploration done" << std::endl;
@@ -360,7 +360,7 @@ void Robot::srt(){
 
             float minLaserReading = 999;
             float minAngle = 0;
-            for (int j = 85 ; j < 96; j++){
+            for (int j = 80 ; j < 100; j++){
                 if(laserReadings[j] > 0 && laserReadings[j] < minLaserReading){
                     minLaserReading = laserReadings[j];
                     minAngle = j;
@@ -372,7 +372,7 @@ void Robot::srt(){
             }else{
                 //CHECK Q
                 float q,x,y,r;
-                r = minLaserReading*ALPHA;
+                r = minLaserReading*ALPHA - (R + 0.1);
                 x = robotPosition[0] + (r) * cos(robotOrientation[2] + ((minAngle - 90)*M_PI)/180);
                 y = robotPosition[1] + (r) * sin(robotOrientation[2] + ((minAngle - 90)*M_PI)/180);
 
@@ -565,12 +565,10 @@ void Robot::printTree(node * n)
 }
 
 bool Robot::isVisited(node *tree, float x, float y){
-
     if ( tree == NULL ){
-        return NULL;
+        return false;
     }else{
         bool check = false;
-
         float min = 999, delta = 999, minX = 0, minY = 0;
         for (int j = 0; j < 180 ; j++){
             delta = distance(tree->coordinates[j].x,tree->coordinates[j].y,x,y);
@@ -587,40 +585,14 @@ bool Robot::isVisited(node *tree, float x, float y){
             return true;
         }
 
-        if (tree->child != NULL){
+        if (tree->next != NULL && check == false){
+            check = isVisited(tree->next,x,y);
+        }
+
+        if (tree->child != NULL && check == false){
             check = isVisited(tree->child,x,y);
         }
 
-        if (check == false)
-        {
-            while (tree->next != NULL){
-
-                float min = 999, delta = 999, minX = 0, minY = 0;
-                for (int j = 0; j < 180 ; j++){
-                    delta = distance(tree->coordinates[j].x,tree->coordinates[j].y,x,y);
-                    if( delta < min ){
-                        min = delta;
-                        minX = tree->coordinates[j].x;
-                        minY = tree->coordinates[j].y;
-                    }
-                }
-                float distToNode = distance(tree->x,tree->y,minX,minY);
-                float distToPoint = distance(tree->x,tree->y,x,y);
-
-                if(distToNode > distToPoint && currentNode->x != tree->x && currentNode->y != tree->y){
-                    return true;
-                }else{
-                    check = isVisited(tree->next,x,y);
-
-                    if (check == false)
-                    {
-                      tree = tree->next;
-                    } else {
-                        return check;
-                    }
-                  }
-            }
-        }
         return check;
     }
 }
