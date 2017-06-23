@@ -74,7 +74,7 @@ private:
 
     float theta = 0;
     int indexFindingQ = 0;
-    const int MAX_I = 50;
+    const int MAX_I = 500;
     const float MARGIN_THETA = 0.05;
 
     const int Q_NOT_FOUND = 0;

@@ -322,10 +322,14 @@ void Robot::srt(){
 
         if(srtRobotState == FINDING_THETA){
             //generate random theta
-            float nPi = M_PI*(-1);
-            theta = ((float(rand()) / float(RAND_MAX)) * (M_PI - nPi)) + nPi;
-            srtRobotState = GO_TO_THETA;
-            indexFindingQ++;
+//            float nPi = M_PI*(-1);
+//            theta = ((float(rand()) / float(RAND_MAX)) * (M_PI - nPi)) + nPi;
+             w = 40;
+            if(rand()%10 >= 8 ){
+                theta = robotOrientation[2];
+                srtRobotState = GO_TO_THETA;
+                indexFindingQ++;
+            }
         }
 
         if(srtRobotState == GO_TO_THETA){
