@@ -314,10 +314,11 @@ void Robot::srt(){
     if(srtState == Q_NOT_FOUND){
         v = 0;
         if(indexFindingQ > MAX_I){
-            currentNode = getParent(tree);
+            currentNode = getParent(currentNode);
             std::cout << "NO Q FOUND -> GOTO PARENT  : " << currentNode->x << ", " << currentNode->y << std::endl;
             srtState = Q_FOUND;
             srtRobotState = GO_TO_Q;
+            robotTurning = TURNING_UNDEFINED;
         }
 
         if(srtRobotState == FINDING_THETA){
@@ -325,7 +326,7 @@ void Robot::srt(){
 //            float nPi = M_PI*(-1);
 //            theta = ((float(rand()) / float(RAND_MAX)) * (M_PI - nPi)) + nPi;
              w = 40;
-            if(rand()%10 >= 8 ){
+            if(rand()%10 >= 3 ){
                 theta = robotOrientation[2];
                 srtRobotState = GO_TO_THETA;
                 indexFindingQ++;
@@ -372,9 +373,30 @@ void Robot::srt(){
             }else{
                 //CHECK Q
                 float q,x,y,r;
-                r = minLaserReading*ALPHA - (R + 0.1);
+                r = minLaserReading*ALPHA;
+
                 x = robotPosition[0] + (r) * cos(robotOrientation[2] + ((minAngle - 90)*M_PI)/180);
                 y = robotPosition[1] + (r) * sin(robotOrientation[2] + ((minAngle - 90)*M_PI)/180);
+
+                float fallback = R + 0.2;
+                float nPi = M_PI*(-1);
+                if(robotOrientation[2] >= 0 && robotOrientation[2] <= M_PI/2 ){
+                    y = y - fallback;
+                    x = x - fallback;
+                }
+                if(robotOrientation[2] > M_PI/2 && robotOrientation[2] <= M_PI){
+                    y = y - fallback;
+                    x = x + fallback;
+                }
+                if(robotOrientation[2] > nPi && robotOrientation[2] <= nPi/2){
+                    y = y + fallback;
+                    x = x + fallback;
+                }
+                if(robotOrientation[2] > nPi/2 && robotOrientation[2] < 0){
+                    y = y + fallback;
+                    x = x - fallback;
+                }
+
 
                 if(r < DMIN || isVisited(tree,x,y)){
                     srtRobotState = FINDING_THETA;
