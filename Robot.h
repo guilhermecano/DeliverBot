@@ -63,7 +63,7 @@ private:
     const float R    = 0.0975;                                  // wheel radius
     const float MARGIN = 0.1;
     const float LIMIAR = 0.1;
-    const float OBSTACLE_MARGIN = 0.1;
+    const float OBSTACLE_MARGIN = 0.2;
     const float MAX_SONAR_READING = 1.0;
     const float ALPHA = 0.7;
     const float DMIN = 1.0;

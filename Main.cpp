@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
         robot->writeSonars();
         robot->writeLaser();
         robot->writePointsPerSonars();
-//        robot->writePointsPerLaser();
+        robot->writePointsPerLaser();
         extApi_sleepMs(50);
     }
     vrep->disconnect();

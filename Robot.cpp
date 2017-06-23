@@ -72,8 +72,8 @@ Robot::Robot(Simulator *sim, std::string name) {
 
     points coordinates;
     for(int i = 0; i < 180; i++){
-        float xPoint = robotPosition[0] + (laserReadings[i]) * cos(robotOrientation[2] + (i*M_PI)/180);
-        float yPoint = robotPosition[1] + (laserReadings[i]) * sin(robotOrientation[2] + (i*M_PI)/180);
+        float xPoint = robotPosition[0] + (laserReadings[i]) * cos(robotOrientation[2] + ((i - 90)*M_PI)/180);
+        float yPoint = robotPosition[1] + (laserReadings[i]) * sin(robotOrientation[2] + ((i - 90)*M_PI)/180);
 
         coordinates[i].x = xPoint;
         coordinates[i].y = yPoint;
@@ -368,8 +368,8 @@ void Robot::srt(){
                 //CHECK Q
                 float q,x,y,r;
                 r = minLaserReading*ALPHA;
-                x = robotPosition[0] + (r) * cos(robotOrientation[2] + (minAngle*M_PI)/180);
-                y = robotPosition[1] + (r) * sin(robotOrientation[2] + (minAngle*M_PI)/180);
+                x = robotPosition[0] + (r) * cos(robotOrientation[2] + ((minAngle - 90)*M_PI)/180);
+                y = robotPosition[1] + (r) * sin(robotOrientation[2] + ((minAngle - 90)*M_PI)/180);
 
                 if(r < DMIN || isVisited(tree,x,y)){
                     srtRobotState = FINDING_THETA;
@@ -379,21 +379,13 @@ void Robot::srt(){
                     indexFindingQ = 0;
 
                     points coordinates;
-                    FILE *data =  fopen("points_laser.txt", "at");
                     for(int i = 0; i < 180; i++){
-                        float xPoint = robotPosition[0] + (laserReadings[i]) * cos(robotOrientation[2] + (i*M_PI)/180);
-                        float yPoint = robotPosition[1] + (laserReadings[i]) * sin(robotOrientation[2] + (i*M_PI)/180);
+                        float xPoint = robotPosition[0] + (laserReadings[i]) * cos(robotOrientation[2] + ((i - 90)*M_PI)/180);
+                        float yPoint = robotPosition[1] + (laserReadings[i]) * sin(robotOrientation[2] + ((i - 90)*M_PI)/180);
 
                         coordinates[i].x = xPoint;
                         coordinates[i].y = yPoint;
-
-                        if(data!=NULL){
-                            fprintf(data, "%.4f \t %.4f \n", xPoint, yPoint);
-                        }
                     }
-
-                    fflush(data);
-                    fclose(data);
 
                     std::cout << "NEW NODE FOUND: (" << x << "," << y << ")" << std::endl;
                     //new node
@@ -696,8 +688,8 @@ void Robot::writePointsPerLaser() {
       // Somente 1 sonar por enquanto, para testes
       for (int i=0; i<180; ++i){
         if(laserReadings[i] > 0){
-          x = robotPosition[0] + (laserReadings[i]+R) * cos(robotOrientation[2] + (i*M_PI)/180);
-          y = robotPosition[1] + (laserReadings[i]+R) * sin(robotOrientation[2] + (i*M_PI)/180);
+          x = robotPosition[0] + (laserReadings[i]+R) * cos(robotOrientation[2] + ((i - 90)*M_PI)/180);
+          y = robotPosition[1] + (laserReadings[i]+R) * sin(robotOrientation[2] + ((i - 90)*M_PI)/180);
           fprintf(data, "%.4f \t %.4f \n", x, y);
         }
       }
