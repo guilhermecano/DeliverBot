@@ -23,6 +23,7 @@ public:
     int getObjectOrientation(simxInt sensorHandle, float *coord);
     int getJointPosition(simxInt jointHandle, float *coord);
     int setJointTargetVelocity(simxInt jointHandle, float velocity);
+    int getId();
 private:
     int id;
     int portNumber;

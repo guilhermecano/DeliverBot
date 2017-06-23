@@ -15,6 +15,15 @@ Robot::Robot(Simulator *sim, std::string name) {
         data =  fopen("points.txt", "wt");
             if (data!=NULL)
               fclose(data);
+        data =  fopen("points_laser.txt", "wt");
+            if (data!=NULL)
+              fclose(data);
+        data =  fopen("laser.txt", "wt");
+            if (data!=NULL)
+              fclose(data);
+        data =  fopen("nodes.txt", "wt");
+            if (data!=NULL)
+              fclose(data);
     }
 
     /* Get handles of sensors and actuators */
@@ -60,15 +69,40 @@ Robot::Robot(Simulator *sim, std::string name) {
     /* Get the encoder data */
     sim->getJointPosition(motorHandle[0],&encoder[0]);
     sim->getJointPosition(motorHandle[1],&encoder[1]);
-    tree = newNode(robotPosition[0],robotPosition[1]);
+
+    points coordinates;
+    for(int i = 0; i < 180; i++){
+        float xPoint = robotPosition[0] + (laserReadings[i]) * cos(robotOrientation[2] + (i*M_PI)/180);
+        float yPoint = robotPosition[1] + (laserReadings[i]) * sin(robotOrientation[2] + (i*M_PI)/180);
+
+        coordinates[i].x = xPoint;
+        coordinates[i].y = yPoint;
+    }
+
+    tree = newNode(robotPosition[0],robotPosition[1], coordinates);
     currentNode = tree;
+    FILE *data =  fopen("nodes.txt", "at");
+    if (data!=NULL)
+    {
+        fprintf(data, "%.2f\t",robotPosition[0]);
+        fprintf(data, "%.2f\t",robotPosition[1]);
+        fprintf(data, "\n");
+        fflush(data);
+        fclose(data);
+    }
+
+    //get laser readings
+    laserHandle = sim->getHandle("Hokuyo_URG_04LX_UG01_ROS");
+    simxInt signalSize;
+    simxGetStringSignal(sim->getId(),"laserSignal",&laserSignal,&signalSize,simx_opmode_streaming);
+
 }
 
 void Robot::update() {
-
     updateSensors();
     updatePose();
     if(robotState == EXPLORATION){
+        obstacleCheck();
         srt();
     }else{
         std::cout << "Exploration done" << std::endl;
@@ -112,6 +146,19 @@ void Robot::updateSensors()
 
     tree = treeB;
     currentNode = currentNodeB;
+    simxInt signalSize;
+
+    if (simxGetStringSignal(sim->getId(),"laserSignal",&laserSignal,&signalSize,simx_opmode_buffer)==simx_error_noerror){
+//       int cnt=signalSize/4;
+       int cnt=180;
+        int i = 0;
+        int angle = 0;
+        while (i < 180){
+            laserReadings[angle]=((float*)laserSignal)[i];
+            i++;
+            angle++;
+        }
+    }
 }
 
 void Robot::updatePose()
@@ -174,6 +221,26 @@ void Robot::writeSonars() {
     }
 }
 
+void Robot::writeLaser() {
+    /* write data to file */
+    /* file format: robotPosition[x] robotPosition[y] robotPosition[z] robotLastPosition[x] robotLastPosition[y] robotLastPosition[z]
+     *              encoder[0] encoder[1] lastEncoder[0] lastEncoder[1] */
+    if (LOG) {
+        FILE *data =  fopen("laser.txt", "at");
+        if (data!=NULL)
+        {
+            if (data!=NULL)
+            {
+                for (int i=0; i<180; ++i)
+                    fprintf(data, "%.2f\t",laserReadings[i]);
+                fprintf(data, "\n");
+                fflush(data);
+                fclose(data);
+            }
+        }
+    }
+}
+
 void Robot::printPose() {
     std::cout << "[" << robotPosition[0] << ", " << robotPosition[1] << ", " << robotOrientation[2] << "]" << std::endl;
 }
@@ -205,7 +272,7 @@ double Robot::vLToDrive(double vLinear, double vAngular)
 
 }
 
-void Robot::srt(){
+void Robot::obstacleCheck(){
     float minDist = 999;
     int indexMin = -1;
     float minLeft = 999;
@@ -238,95 +305,210 @@ void Robot::srt(){
             robotTurning = TURNING_UNDEFINED;
         }
     }
-    float alfa, beta, p, dx, dy;
-    float v, w, kRho = 50, kAlfa = 40, kBeta= -5;
-    dx = currentNode->x - robotPosition[0];
-    dy = currentNode->y - robotPosition[1];
-    p = dx*dx + dy*dy;
-    alfa = atan2(dy,dx) - robotOrientation[2] ;
-    beta = - robotOrientation[2] - alfa;
-    v = kRho*p;
-    if(v>20)
-    {
-        v = 20;
-    }
-    w = kAlfa*alfa + kBeta*beta;
-
-    float delta = atan2(dy,dx)*atan2(dy,dx) - robotOrientation[2]*robotOrientation[2];
-
-    if(robotTurning == TURNING_UNDEFINED){
-        if(w > 0){
-              robotTurning = TURNING_LEFT;
-        }else{
-              robotTurning = TURNING_RIGHT;
-        }
-    }
-
-    if(robotTurning == TURNING_RIGHT){
-        w = -20;
-    }else{
-        w = 20;
-    }
-
-    if(alfa*alfa < MARGIN
-            //&& !robotObstacleFound
-            ){
-        //reto
-        robotTurning = TURNING_UNDEFINED;
-        w = 0;
-    }else{
-        //
-        v = 0;
-    }
-
-    if(p < LIMIAR && w == 0){
-        v = 1.0;
-    }
-//    std::cout << "delta*delta = " << delta*delta << " p: " << p << std::endl;
-
-    if(p < LIMIAR){
-        int i = 0;
-        bool foundNewQ = false;
-        float q,x,y,r;
-        int theta;
-        while(i < MAX_I && foundNewQ == false){
-            theta = rand() % 8; //0 - 7
-            r = sonarReadings[theta];
-            if(r < 0){
-                r = MAX_SONAR_READING;
-            }
-
-            q = r*ALPHA;
-            x = robotPosition[0] + (q) * cos(robotOrientation[2] + (sonarAngles[theta]*M_PI)/180);
-            y = robotPosition[1] + (q) * sin(robotOrientation[2] + (sonarAngles[theta]*M_PI)/180);
-
-            if(q >= DMIN && !isVisited(tree,x,y)){
-                foundNewQ = true;
-                break;
-            }
-            i++;
-        }
-
-        if(foundNewQ == false){
-            //goto parent node
-            currentNode = getParent(tree);
-            std::cout << "NO Q FOUND -> GOTO PARENT  : " << currentNode->x << ", " << currentNode->y << std::endl;
-
-        }else{
-            std::cout << "NEW NODE FOUND: (" << x << "," << y << ")" << std::endl;
-            //new node
-            if(currentNode->child == NULL){
-                currentNode = addChild(currentNode, x,y);
-            }else{
-                currentNode = addSibling(currentNode, x,y);
-            }
-        }
-    }else{
-        drive(v,w);
-    }
 }
 
-node * Robot::newNode(float x, float y)
+void Robot::srt(){
+    float v, w;
+    float alfa, beta, p, dx, dy;
+    float kRho = 50, kAlfa = 50, kBeta= -5;
+    if(srtState == Q_NOT_FOUND){
+        if(indexFindingQ > MAX_I){
+            currentNode = getParent(tree);
+            std::cout << "NO Q FOUND -> GOTO PARENT  : " << currentNode->x << ", " << currentNode->y << std::endl;
+            srtState = Q_FOUND;
+            srtRobotState = GO_TO_Q;
+        }
+
+        if(srtRobotState == FINDING_THETA){
+            //generate random theta
+            float nPi = M_PI*(-1);
+            theta = ((float(rand()) / float(RAND_MAX)) * (M_PI - nPi)) + nPi;
+            srtRobotState = GO_TO_THETA;
+            indexFindingQ++;
+        }
+
+        if(srtRobotState == GO_TO_THETA){
+             //check robotOrientation
+            float delta = robotOrientation[2] - theta;
+             if(delta*delta < MARGIN_THETA ){
+                w = 0;
+                srtRobotState = CHECK_Q;
+             }else{
+                 if(robotTurning == TURNING_UNDEFINED){
+                    if(delta > 0){
+                        robotTurning = TURNING_LEFT;
+                    }else{
+                        robotTurning = TURNING_RIGHT;
+                    }
+                 }
+                 if(robotTurning == TURNING_RIGHT){
+                    w = -20;
+                 }
+                 if(robotTurning == TURNING_LEFT){
+                    w = 20;
+                 }
+             }
+        }
+
+        if(srtRobotState == CHECK_Q){
+            robotTurning = TURNING_UNDEFINED;
+
+            float minLaserReading = 999;
+            float minAngle = 0;
+            for (int j = 85 ; j < 96; j++){
+                if(laserReadings[j] > 0 && laserReadings[j] < minLaserReading){
+                    minLaserReading = laserReadings[j];
+                    minAngle = j;
+                }
+            }
+
+            if(minLaserReading == 999){
+                srtRobotState = FINDING_THETA;
+            }else{
+                //CHECK Q
+                float q,x,y,r;
+                r = minLaserReading*ALPHA;
+                x = robotPosition[0] + (r) * cos(robotOrientation[2] + (minAngle*M_PI)/180);
+                y = robotPosition[1] + (r) * sin(robotOrientation[2] + (minAngle*M_PI)/180);
+
+                if(r < DMIN || isVisited(tree,x,y)){
+                    srtRobotState = FINDING_THETA;
+                }else{
+                    srtState = Q_FOUND;
+                    srtRobotState = GO_TO_Q;
+                    indexFindingQ = 0;
+
+                    points coordinates;
+                    FILE *data =  fopen("points_laser.txt", "at");
+                    for(int i = 0; i < 180; i++){
+                        float xPoint = robotPosition[0] + (laserReadings[i]) * cos(robotOrientation[2] + (i*M_PI)/180);
+                        float yPoint = robotPosition[1] + (laserReadings[i]) * sin(robotOrientation[2] + (i*M_PI)/180);
+
+                        coordinates[i].x = xPoint;
+                        coordinates[i].y = yPoint;
+
+                        if(data!=NULL){
+                            fprintf(data, "%.4f \t %.4f \n", xPoint, yPoint);
+                        }
+                    }
+
+                    fflush(data);
+                    fclose(data);
+
+                    std::cout << "NEW NODE FOUND: (" << x << "," << y << ")" << std::endl;
+                    //new node
+                    if(currentNode->child == NULL){
+                        currentNode = addChild(currentNode, x,y, coordinates);
+                    }else{
+                        currentNode = addSibling(currentNode, x,y,coordinates);
+                    }
+
+                    data =  fopen("nodes.txt", "at");
+                    if (data!=NULL)
+                    {
+                        fprintf(data, "%.2f\t",x);
+                        fprintf(data, "%.2f\t",y);
+                        fprintf(data, "\n");
+                        fflush(data);
+                        fclose(data);
+                    }
+
+
+                }
+            }
+        }
+
+    }
+
+    if(srtState == Q_FOUND){
+
+        if(srtRobotState == GO_TO_Q){
+
+            dx = currentNode->x - robotPosition[0];
+            dy = currentNode->y - robotPosition[1];
+            p = dx*dx + dy*dy;
+            alfa = atan2(dy,dx) - robotOrientation[2] ;
+            beta = - robotOrientation[2] - alfa;
+            v = kRho*p;
+            if(v>40)
+            {
+                v = 40;
+            }
+            w = kAlfa*alfa + kBeta*beta;
+
+            float delta = atan2(dy,dx)*atan2(dy,dx) - robotOrientation[2]*robotOrientation[2];
+
+            if(robotTurning == TURNING_UNDEFINED){
+                if(w > 0){
+                      robotTurning = TURNING_LEFT;
+                }else{
+                      robotTurning = TURNING_RIGHT;
+                }
+            }
+
+            if(robotTurning == TURNING_RIGHT){
+                w = -20;
+            }else{
+                w = 20;
+            }
+
+            if(alfa*alfa < MARGIN){
+                robotTurning = TURNING_UNDEFINED;
+                w = 0;
+            }else{
+                v = 0;
+            }
+            if(p < LIMIAR && w == 0){
+                v = 1.0;
+            }
+
+            //Q_ARRIVED
+            if(p < LIMIAR){
+                std::cout << "Q ARRIVED" << std::endl;
+                srtState = Q_NOT_FOUND;
+                srtRobotState = FINDING_THETA;
+            }
+        }
+    }
+
+    drive(v,w);
+
+//    std::cout << "dist: " << distance(robotPosition[0],robotPosition[1],currentNode->x,currentNode->y) <<  std::endl;
+    //PrintState
+    bool printState = false;
+    if(printState){
+        switch (srtState) {
+            case 0:
+                std::cout << "Q_NOT_FOUND" << std::endl;
+                break;
+            case 1:
+                std::cout << "Q_FOUND" << std::endl;
+                break;
+        }
+        switch (srtRobotState) {
+            case 0:
+                std::cout << " FINDING_THETA ";
+                break;
+            case 1:
+                std::cout << " GO_TO_THETA " ;
+                break;
+            case 2:
+                std::cout << " CHECK_Q " ;
+                break;
+            case 3:
+                std::cout << " Q_ARRIVED ";
+                break;
+            case 4:
+                std::cout << " GO_TO_Q " ;
+                break;
+            default:
+                break;
+        }
+    }
+
+}
+
+node * Robot::newNode(float x, float y,points coordinates)
 {
     node *new_node = (node*)malloc(sizeof(node));
 
@@ -335,12 +517,17 @@ node * Robot::newNode(float x, float y)
         new_node->child = NULL;
         new_node->x = x;
         new_node->y = y;
+
+        for (int i = 0; i < 180;i++){
+            new_node->coordinates[i].x = coordinates[i].x;
+            new_node->coordinates[i].y = coordinates[i].y;
+        }
     }
 
     return new_node;
 }
 
-node * Robot::addSibling(node * n, float x, float y)
+node * Robot::addSibling(node * n, float x, float y, points coordinates)
 {
     if ( n == NULL )
         return NULL;
@@ -348,18 +535,18 @@ node * Robot::addSibling(node * n, float x, float y)
     while (n->next)
         n = n->next;
 
-    return (n->next = newNode(x,y));
+    return (n->next = newNode(x,y,coordinates));
 }
 
-node * Robot::addChild(node * n, float x, float y)
+node * Robot::addChild(node * n, float x, float y,points coordinates)
 {
     if ( n == NULL )
         return NULL;
 
     if ( n->child )
-        return addSibling(n->child, x,y);
+        return addSibling(n->child, x,y,coordinates);
     else
-        return (n->child = newNode(x,y));
+        return (n->child = newNode(x,y,coordinates));
 }
 
 void Robot::printTree(node * n)
@@ -379,36 +566,60 @@ void Robot::printTree(node * n)
 }
 
 bool Robot::isVisited(node *tree, float x, float y){
+
     if ( tree == NULL ){
         return NULL;
     }else{
         bool check = false;
 
+        float min = 999, delta = 999, minX = 0, minY = 0;
         if (tree->child != NULL){
-            if (tree->x >= x - VISITED_MARGIN && tree->x <= x + VISITED_MARGIN &&
-                tree->y >= y - VISITED_MARGIN && tree->y <= y + VISITED_MARGIN){
-                return true;
-            } else {
-                check = isVisited(tree->child,x,y);
+
+            for (int j = 0; j < 180 ; j++){
+                delta = distance(tree->coordinates[j].x,tree->coordinates[j].y,x,y);
+                if( delta < min ){
+                    min = delta;
+                    minX = tree->coordinates[j].x;
+                    minY = tree->coordinates[j].y;
+                }
             }
+            float distToNode = distance(tree->x,tree->y,minX,minY);
+            float distToPoint = distance(tree->x,tree->y,x,y);
+
+            if(distToNode > distToPoint){
+                return true;
+            }
+
         }
 
         if (check == false)
         {
             while (tree->next != NULL){
-                if (tree->x >= x - VISITED_MARGIN && tree->x <= x + VISITED_MARGIN &&
-                    tree->y >= y - VISITED_MARGIN && tree->y <= y + VISITED_MARGIN){
-                    return true;
-                } else {
-                  check = isVisited(tree->next,x,y);
 
-                  if (check == false)
-                  {
-                    tree = tree->next;
-                  } else {
-                      return check;
-                  }
+                float min = 999, delta = 999, minX = 0, minY = 0;
+                for (int j = 0; j < 180 ; j++){
+                    delta = distance(tree->coordinates[j].x,tree->coordinates[j].y,x,y);
+                    if( delta < min ){
+                        min = delta;
+                        minX = tree->coordinates[j].x;
+                        minY = tree->coordinates[j].y;
+                    }
                 }
+                float distToNode = distance(tree->x,tree->y,minX,minY);
+                float distToPoint = distance(tree->x,tree->y,x,y);
+
+                if(distToNode > distToPoint){
+                    return true;
+                }else{
+                        check = isVisited(tree->next,x,y);
+
+                        if (check == false)
+                        {
+                          tree = tree->next;
+                        } else {
+                            return check;
+                        }
+                  }
             }
         }
         return check;
@@ -474,4 +685,29 @@ void Robot::writePointsPerSonars() {
       fclose(data);
     }
   }
+}
+
+void Robot::writePointsPerLaser() {
+  float x, y;
+  if (LOG) {
+    FILE *data =  fopen("points_laser.txt", "at");
+
+    if (data!=NULL){
+      // Somente 1 sonar por enquanto, para testes
+      for (int i=0; i<180; ++i){
+        if(laserReadings[i] > 0){
+          x = robotPosition[0] + (laserReadings[i]+R) * cos(robotOrientation[2] + (i*M_PI)/180);
+          y = robotPosition[1] + (laserReadings[i]+R) * sin(robotOrientation[2] + (i*M_PI)/180);
+          fprintf(data, "%.4f \t %.4f \n", x, y);
+        }
+      }
+      fflush(data);
+      fclose(data);
+    }
+  }
+}
+
+double Robot::distance(double dX0, double dY0, double dX1, double dY1)
+{
+    return sqrt((dX1 - dX0)*(dX1 - dX0) + (dY1 - dY0)*(dY1 - dY0));
 }

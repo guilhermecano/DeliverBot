@@ -83,3 +83,7 @@ int Simulator::setJointTargetVelocity(simxInt jointHandle, float velocity) {
     return 1;
 }
 
+int Simulator::getId(){
+    return id;
+}
+
