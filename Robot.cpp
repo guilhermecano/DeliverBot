@@ -312,6 +312,7 @@ void Robot::srt(){
     float alfa, beta, p, dx, dy;
     float kRho = 50, kAlfa = 50, kBeta= -5;
     if(srtState == Q_NOT_FOUND){
+        v = 0;
         if(indexFindingQ > MAX_I){
             currentNode = getParent(tree);
             std::cout << "NO Q FOUND -> GOTO PARENT  : " << currentNode->x << ", " << currentNode->y << std::endl;
