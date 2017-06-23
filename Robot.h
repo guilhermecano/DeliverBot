@@ -65,7 +65,7 @@ private:
     const float LIMIAR = 0.1;
     const float OBSTACLE_MARGIN = 0.2;
     const float MAX_SONAR_READING = 1.0;
-    const float ALPHA = 0.7;
+    const float ALPHA = 0.8;
     const float DMIN = 1.0;
 
     const int EXPLORATION = 1;
