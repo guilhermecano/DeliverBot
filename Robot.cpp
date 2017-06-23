@@ -395,7 +395,7 @@ void Robot::srt(){
                         currentNode = addSibling(currentNode, x,y,coordinates);
                     }
 
-                    data =  fopen("nodes.txt", "at");
+                    FILE *data =  fopen("nodes.txt", "at");
                     if (data!=NULL)
                     {
                         fprintf(data, "%.2f\t",x);
@@ -406,6 +406,7 @@ void Robot::srt(){
                     }
 
 
+                    writePointsPerLaser();
                 }
             }
         }
@@ -459,6 +460,7 @@ void Robot::srt(){
                 std::cout << "Q ARRIVED" << std::endl;
                 srtState = Q_NOT_FOUND;
                 srtRobotState = FINDING_THETA;
+                writePointsPerLaser();
             }
         }
     }
