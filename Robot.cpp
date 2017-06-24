@@ -102,8 +102,22 @@ void Robot::update() {
     updateSensors();
     updatePose();
     if(robotState == EXPLORATION){
-//        obstacleCheck();
-        srt();
+        if(obstacleCheck()){
+            float v = MAX_LINEAR_VELOCITY;
+            float w = 0;
+            //void obstacle
+            float angle[8] = {-30.0,-30.0,-30.0,-30.0,60.0,60.0,60.0,60.0};
+            float minDist[8] = {0.1,0.2,0.3,0.3,0.3,0.3,0.2,0.1};
+            for(int i = 0; i < 8; i++){
+                if(sonarReadings[i] > 0 && sonarReadings[i] < minDist[i]){
+                  v = 5.0;
+                  w += angle[i];
+                }
+            }
+            drive(v,w);
+        }else{
+            srt();
+        }
     }else{
         std::cout << "Exploration done" << std::endl;
         drive(0,0);
@@ -149,7 +163,7 @@ void Robot::updateSensors()
     simxInt signalSize;
 
     if (simxGetStringSignal(sim->getId(),"laserSignal",&laserSignal,&signalSize,simx_opmode_buffer)==simx_error_noerror){
-//       int cnt=signalSize/4;
+
        int cnt=180;
         int i = 0;
         int angle = 0;
@@ -272,13 +286,13 @@ double Robot::vLToDrive(double vLinear, double vAngular)
 
 }
 
-void Robot::obstacleCheck(){
+bool Robot::obstacleCheck(){
     float minDist = 999;
     int indexMin = -1;
     float minLeft = 999;
     float minRight = 999;
 
-    for (int i=2; i<7; ++i){
+    for (int i=0; i<8; ++i){
         if(sonarReadings[i] > 0 && sonarReadings[i] < minLeft && i < 4){
             minLeft = sonarReadings[i];
         }
@@ -290,21 +304,13 @@ void Robot::obstacleCheck(){
           minDist = sonarReadings[i];
         }
     }
+
     //obstacle is close
     if(minDist < OBSTACLE_MARGIN && minDist > 0){
-        if(!robotObstacleFound){
-            robotObstacleFound = true;
-            robotTurning =  rand() % 2;
-            currentNode->x = robotPosition[0];
-            currentNode->y = robotLastPosition[1];
-            std::cout << "OBSTACLE CLOSE: " << std::endl;
-        }
-    }else{
-        if(robotObstacleFound){
-            robotObstacleFound = false;
-            robotTurning = TURNING_UNDEFINED;
-        }
+        return true;
     }
+
+    return false;
 }
 
 void Robot::srt(){
@@ -316,6 +322,7 @@ void Robot::srt(){
         if(indexFindingQ > MAX_I){
             currentNode = getParent(currentNode);
             std::cout << "NO Q FOUND -> GOTO PARENT  : " << currentNode->x << ", " << currentNode->y << std::endl;
+            std::cout << "ROBOT( " << robotPosition[0] << ", " << robotLastPosition[1] << ")" <<std::endl;
             srtState = Q_FOUND;
             srtRobotState = GO_TO_Q;
             robotTurning = TURNING_UNDEFINED;
@@ -325,8 +332,8 @@ void Robot::srt(){
             //generate random theta
 //            float nPi = M_PI*(-1);
 //            theta = ((float(rand()) / float(RAND_MAX)) * (M_PI - nPi)) + nPi;
-             w = 40;
-            if(rand()%10 >= 3 ){
+             w = MAX_ANGULAR_VELOCITY;
+            if(rand()%10 >= 0 ){
                 theta = robotOrientation[2];
                 srtRobotState = GO_TO_THETA;
                 indexFindingQ++;
@@ -337,7 +344,7 @@ void Robot::srt(){
              //check robotOrientation
             float delta = robotOrientation[2] - theta;
              if(delta*delta < MARGIN_THETA ){
-                w = 0;
+//                w = 0;
                 srtRobotState = CHECK_Q;
              }else{
                  if(robotTurning == TURNING_UNDEFINED){
@@ -348,16 +355,16 @@ void Robot::srt(){
                     }
                  }
                  if(robotTurning == TURNING_RIGHT){
-                    w = -20;
+                    w = -MAX_ANGULAR_VELOCITY;
                  }
                  if(robotTurning == TURNING_LEFT){
-                    w = 20;
+                    w = MAX_ANGULAR_VELOCITY;
                  }
              }
         }
 
         if(srtRobotState == CHECK_Q){
-            robotTurning = TURNING_UNDEFINED;
+//            robotTurning = TURNING_UNDEFINED;
 
             float minLaserReading = 999;
             float minAngle = 0;
@@ -378,27 +385,24 @@ void Robot::srt(){
                 x = robotPosition[0] + (r) * cos(robotOrientation[2] + ((minAngle - 90)*M_PI)/180);
                 y = robotPosition[1] + (r) * sin(robotOrientation[2] + ((minAngle - 90)*M_PI)/180);
 
-                float fallback = R + 0.2;
-                float nPi = M_PI*(-1);
-                if(robotOrientation[2] >= 0 && robotOrientation[2] <= M_PI/2 ){
-                    y = y - fallback;
-                    x = x - fallback;
-                }
-                if(robotOrientation[2] > M_PI/2 && robotOrientation[2] <= M_PI){
-                    y = y - fallback;
-                    x = x + fallback;
-                }
-                if(robotOrientation[2] > nPi && robotOrientation[2] <= nPi/2){
-                    y = y + fallback;
-                    x = x + fallback;
-                }
-                if(robotOrientation[2] > nPi/2 && robotOrientation[2] < 0){
-                    y = y + fallback;
-                    x = x - fallback;
+
+                //check point if has obstacle
+                float min = 999, delta = 999, minX = 0, minY = 0;
+                bool obstacle = false;
+                for (int j = 0; j < 180 ; j++){
+                    delta = distance(currentNode->coordinates[j].x,currentNode->coordinates[j].y,x,y);
+                    if( delta < min ){
+                        min = delta;
+                        minX = currentNode->coordinates[j].x;
+                        minY = currentNode->coordinates[j].y;
+                    }
                 }
 
-
-                if(r < DMIN || isVisited(tree,x,y)){
+                if(min < 0.2){
+                    //obstacle is close to the point
+                    obstacle = true;
+                }
+                if(r < DMIN || isVisited(tree,x,y) || obstacle){
                     srtRobotState = FINDING_THETA;
                 }else{
                     srtState = Q_FOUND;
@@ -407,11 +411,8 @@ void Robot::srt(){
 
                     points coordinates;
                     for(int i = 0; i < 180; i++){
-                        float xPoint = robotPosition[0] + (laserReadings[i]) * cos(robotOrientation[2] + ((i - 90)*M_PI)/180);
-                        float yPoint = robotPosition[1] + (laserReadings[i]) * sin(robotOrientation[2] + ((i - 90)*M_PI)/180);
-
-                        coordinates[i].x = xPoint;
-                        coordinates[i].y = yPoint;
+                        coordinates[i].x = x;
+                        coordinates[i].y = y;
                     }
 
                     std::cout << "NEW NODE FOUND: (" << x << "," << y << ")" << std::endl;
@@ -421,7 +422,6 @@ void Robot::srt(){
                     }else{
                         currentNode = addSibling(currentNode, x,y,coordinates);
                     }
-
                     FILE *data =  fopen("nodes.txt", "at");
                     if (data!=NULL)
                     {
@@ -431,9 +431,6 @@ void Robot::srt(){
                         fflush(data);
                         fclose(data);
                     }
-
-
-                    writePointsPerLaser();
                 }
             }
         }
@@ -452,7 +449,7 @@ void Robot::srt(){
             v = kRho*p;
             if(v>40)
             {
-                v = 40;
+                v = MAX_LINEAR_VELOCITY;
             }
             w = kAlfa*alfa + kBeta*beta;
 
@@ -467,16 +464,16 @@ void Robot::srt(){
             }
 
             if(robotTurning == TURNING_RIGHT){
-                w = -20;
+                w = -MAX_ANGULAR_VELOCITY;
             }else{
-                w = 20;
+                w = MAX_ANGULAR_VELOCITY;
             }
 
             if(alfa*alfa < MARGIN){
                 robotTurning = TURNING_UNDEFINED;
                 w = 0;
             }else{
-                v = 0;
+                //v = 0;
             }
             if(p < LIMIAR && w == 0){
                 v = 1.0;
@@ -487,6 +484,15 @@ void Robot::srt(){
                 std::cout << "Q ARRIVED" << std::endl;
                 srtState = Q_NOT_FOUND;
                 srtRobotState = FINDING_THETA;
+
+                //update node
+                for(int i = 0; i < 180; i++){
+                    float xPoint = robotPosition[0] + (laserReadings[i]) * cos(robotOrientation[2] + ((i - 90)*M_PI)/180);
+                    float yPoint = robotPosition[1] + (laserReadings[i]) * sin(robotOrientation[2] + ((i - 90)*M_PI)/180);
+
+                    currentNode->coordinates[i].x = xPoint;
+                    currentNode->coordinates[i].y = yPoint;
+                }
                 writePointsPerLaser();
             }
         }

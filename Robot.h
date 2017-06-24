@@ -46,7 +46,7 @@ public:
     double vLToDrive(double vLinear, double vAngular);
     void drive(double vLinear, double vAngular);
     void stop();
-    void obstacleCheck();
+    bool obstacleCheck();
     void srt();
     node * newNode(float x, float y,points coordinates);
     node * addSibling(node *, float x, float y,points coordinates);
@@ -65,8 +65,11 @@ private:
     const float LIMIAR = 0.1;
     const float OBSTACLE_MARGIN = 0.2;
     const float MAX_SONAR_READING = 1.0;
-    const float ALPHA = 0.8;
+    const float ALPHA = 0.88;
     const float DMIN = 1.0;
+
+    const float MAX_ANGULAR_VELOCITY = 20;
+    const float MAX_LINEAR_VELOCITY = 40;
 
     const int EXPLORATION = 1;
     const int EXPLORATION_DONE = 2;
@@ -92,8 +95,6 @@ private:
     const int TURNING_LEFT = 1;
     const int TURNING_UNDEFINED = 2;
     int robotTurning = TURNING_UNDEFINED;
-    int robotObstacleFound = false;
-
     std::string name;
     Simulator *sim;
 
