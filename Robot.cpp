@@ -103,19 +103,8 @@ void Robot::update() {
     updateSensors();
     updatePose();
     if(robotState == EXPLORATION){
-        if(obstacleCheck()){
-            float v = MAX_LINEAR_VELOCITY;
-            float w = 0;
-            //void obstacle
-            float angle[8] = {-30.0,-30.0,-30.0,-30.0,60.0,60.0,60.0,60.0};
-            float minDist[8] = {0.1,0.2,0.3,0.3,0.3,0.3,0.2,0.1};
-            for(int i = 0; i < 8; i++){
-                if(sonarReadings[i] > 0 && sonarReadings[i] < minDist[i]){
-                  v = 5.0;
-                  w += angle[i];
-                }
-            }
-            drive(v,w);
+        if(obstacleCheck() && srtRobotState == GO_TO_Q){
+            voidObstacle();
         }else{
             srt();
         }
@@ -123,6 +112,21 @@ void Robot::update() {
         std::cout << "Exploration done" << std::endl;
         drive(0,0);
     }
+}
+
+void Robot::voidObstacle(){
+    float v = MAX_LINEAR_VELOCITY;
+    float w = 0;
+    //void obstacle
+    float angle[8] = {-30.0,-30.0,-30.0,-30.0,60.0,60.0,60.0,60.0};
+    float minDist[8] = {0.1,0.2,0.3,0.3,0.3,0.3,0.2,0.1};
+    for(int i = 0; i < 8; i++){
+        if(sonarReadings[i] > 0 && sonarReadings[i] < minDist[i]){
+          v = 5.0;
+          w += angle[i];
+        }
+    }
+    drive(v,w);
 }
 
 void Robot::updateSensors()
@@ -321,18 +325,20 @@ void Robot::srt(){
     if(srtState == Q_NOT_FOUND){
         v = 0;
         if(indexFindingQ > MAX_I){
-            std::cout << "NO Q FOUND - ROBOT( " << currentNode->x << ", " << currentNode->y << ")" <<std::endl;
+            float lastX = currentNode->x;
+            float lastY = currentNode->y;
             currentNode = getParent(tree);
             std::cout << "GOTO PARENT(" << currentNode->x << ", " << currentNode->y << ")" << std::endl;
             srtState = Q_FOUND;
             srtRobotState = GO_TO_Q;
             robotTurning = TURNING_UNDEFINED;
+
+            if(lastX == currentNode->x && lastY == currentNode->y){
+                robotState = EXPLORATION_DONE;
+            }
         }
 
         if(srtRobotState == FINDING_THETA){
-            //generate random theta
-//            float nPi = M_PI*(-1);
-//            theta = ((float(rand()) / float(RAND_MAX)) * (M_PI - nPi)) + nPi;
              w = MAX_ANGULAR_VELOCITY;
             if(rand()%10 >= 0 ){
                 theta = robotOrientation[2];
@@ -591,10 +597,10 @@ void Robot::printTree(node * n)
 }
 
 bool Robot::isVisited(node *tree, float x, float y){
+    bool check = false;
     if ( tree == NULL ){
         return false;
-    }else{
-        bool check = false;
+    } else {
         float min = 999, delta = 999, minX = 0, minY = 0;
         for (int j = 0; j < 180 ; j++){
             delta = distance(tree->coordinates[j].x,tree->coordinates[j].y,x,y);
@@ -608,19 +614,31 @@ bool Robot::isVisited(node *tree, float x, float y){
         float distToPoint = distance(tree->x,tree->y,x,y);
 
         if(distToNode > distToPoint && currentNode->x != tree->x && currentNode->y != tree->y){
-            return true;
-        }
-
-        if (tree->next != NULL && check == false){
-            check = isVisited(tree->next,x,y);
+            check = true;
         }
 
         if (tree->child != NULL && check == false){
             check = isVisited(tree->child,x,y);
         }
 
+        if (check == false)
+        {
+            while (tree->next != NULL){
+
+              check = isVisited(tree->next,x,y);
+
+              if (check == false)
+              {
+                tree = tree->next;
+              } else {
+                  return check;
+              }
+            }
+        }
+
         return check;
     }
+
 }
 
 node * Robot::getParent(node *tree){
