@@ -99,6 +99,7 @@ Robot::Robot(Simulator *sim, std::string name) {
 }
 
 void Robot::update() {
+
     updateSensors();
     updatePose();
     if(robotState == EXPLORATION){
@@ -321,9 +322,9 @@ void Robot::srt(){
         v = 0;
         if(indexFindingQ > MAX_I){
             std::cout << "NO Q FOUND - ROBOT( " << currentNode->x << ", " << currentNode->y << ")" <<std::endl;
-            currentNode = getParent(currentNode);
+            currentNode = getParent(tree);
             std::cout << "GOTO PARENT(" << currentNode->x << ", " << currentNode->y << ")" << std::endl;
-             srtState = Q_FOUND;
+            srtState = Q_FOUND;
             srtRobotState = GO_TO_Q;
             robotTurning = TURNING_UNDEFINED;
         }
@@ -384,7 +385,6 @@ void Robot::srt(){
 
                 x = robotPosition[0] + (r) * cos(robotOrientation[2] + ((minAngle - 90)*M_PI)/180);
                 y = robotPosition[1] + (r) * sin(robotOrientation[2] + ((minAngle - 90)*M_PI)/180);
-
 
                 //check point if has obstacle
                 float min = 999, delta = 999, minX = 0, minY = 0;
@@ -499,8 +499,6 @@ void Robot::srt(){
     }
 
     drive(v,w);
-
-//    std::cout << "dist: " << distance(robotPosition[0],robotPosition[1],currentNode->x,currentNode->y) <<  std::endl;
     //PrintState
     bool printState = false;
     if(printState){
