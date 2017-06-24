@@ -340,7 +340,7 @@ void Robot::srt(){
 
         if(srtRobotState == FINDING_THETA){
              w = MAX_ANGULAR_VELOCITY;
-            if(rand()%10 >= 0 ){
+            if(rand()%10 >= 5 ){
                 theta = robotOrientation[2];
                 srtRobotState = GO_TO_THETA;
                 indexFindingQ++;

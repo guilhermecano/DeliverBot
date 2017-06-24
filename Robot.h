@@ -66,8 +66,9 @@ private:
     const float LIMIAR = 0.3;
     const float OBSTACLE_MARGIN = 0.3;
     const float MAX_SONAR_READING = 1.0;
+    const float MAX_LASER_READING = 6.0;
     const float ALPHA = 0.88;
-    const float DMIN = 1.0;
+    const float DMIN = 2.0;
 
     const float MAX_ANGULAR_VELOCITY = 20;
     const float MAX_LINEAR_VELOCITY = 30;
