@@ -320,10 +320,10 @@ void Robot::srt(){
     if(srtState == Q_NOT_FOUND){
         v = 0;
         if(indexFindingQ > MAX_I){
+            std::cout << "NO Q FOUND - ROBOT( " << currentNode->x << ", " << currentNode->y << ")" <<std::endl;
             currentNode = getParent(currentNode);
-            std::cout << "NO Q FOUND -> GOTO PARENT  : " << currentNode->x << ", " << currentNode->y << std::endl;
-            std::cout << "ROBOT( " << robotPosition[0] << ", " << robotLastPosition[1] << ")" <<std::endl;
-            srtState = Q_FOUND;
+            std::cout << "GOTO PARENT(" << currentNode->x << ", " << currentNode->y << ")" << std::endl;
+             srtState = Q_FOUND;
             srtRobotState = GO_TO_Q;
             robotTurning = TURNING_UNDEFINED;
         }
@@ -634,7 +634,7 @@ node * Robot::getParent(node *tree){
         if (tree->child != NULL){
             if (currentNode->x == tree->child->x &&
                 currentNode->y == tree->child->y){
-                parent = tree;
+                return tree;
             } else {
                 parent = getParent(tree->child);
             }
