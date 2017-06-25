@@ -114,7 +114,7 @@ void Robot::voidObstacle(){
     float v = MAX_LINEAR_VELOCITY;
     float w = 0;
     //void obstacle
-    float angle[8] = {-40.0,-50.0,-60.0,-60.0,50.0,40.0,30.0,0.0};
+    float angle[8] = {-10.0,-30.0,-40.0,-50.0,40.0,30.0,20.0,5.0};
     float minDist[8] = {0.1,0.3,0.4,0.4,0.4,0.4,0.4,0.1};
     for(int i = 1; i < 7; i++){
         if(sonarReadings[i] > 0 && sonarReadings[i] < minDist[i]){
