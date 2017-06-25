@@ -114,8 +114,8 @@ void Robot::voidObstacle(){
     float v = MAX_LINEAR_VELOCITY;
     float w = 0;
     //void obstacle
-    float angle[8] = {-30.0,-30.0,-30.0,-30.0,60.0,60.0,60.0,60.0};
-    float minDist[8] = {0.1,0.2,0.3,0.3,0.3,0.3,0.2,0.1};
+    float angle[8] = {-20.0,-20.0,-20.0,-20.0,30.0,30.0,30.0,30.0};
+    float minDist[8] = {0.1,0.3,0.4,0.4,0.4,0.4,0.4,0.1};
     for(int i = 1; i < 7; i++){
         if(sonarReadings[i] > 0 && sonarReadings[i] < minDist[i]){
           v = 5.0;
@@ -340,7 +340,7 @@ void Robot::srt(){
 
         if(srtRobotState == FINDING_THETA){
              w = -MAX_ANGULAR_VELOCITY;
-            if(rand()%10 >= 0 ){
+            if(rand()%10 >= 5 ){
                 theta = robotOrientation[2];
                 srtRobotState = GO_TO_THETA;
                 indexFindingQ++;
@@ -472,45 +472,13 @@ void Robot::srt(){
                 writePointsPerLaser();
             }
 
-            if(obstacleCheck()){
-                voidObstacle();
-            }
         }
     }
-
-    drive(v,w);
-    //PrintState
-    bool printState = false;
-    if(printState){
-        switch (srtState) {
-            case 0:
-                std::cout << "Q_NOT_FOUND" << std::endl;
-                break;
-            case 1:
-                std::cout << "Q_FOUND" << std::endl;
-                break;
-        }
-        switch (srtRobotState) {
-            case 0:
-                std::cout << " FINDING_THETA ";
-                break;
-            case 1:
-                std::cout << " GO_TO_THETA " ;
-                break;
-            case 2:
-                std::cout << " CHECK_Q " ;
-                break;
-            case 3:
-                std::cout << " Q_ARRIVED ";
-                break;
-            case 4:
-                std::cout << " GO_TO_Q " ;
-                break;
-            default:
-                break;
-        }
+    if(obstacleCheck() && srtRobotState == GO_TO_Q){
+        voidObstacle();
+    }else{
+        drive(v,w);
     }
-
 }
 
 node * Robot::newNode(float x, float y,points coordinates)
