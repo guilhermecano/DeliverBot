@@ -103,11 +103,7 @@ void Robot::update() {
     updateSensors();
     updatePose();
     if(robotState == EXPLORATION){
-        if(obstacleCheck() && srtRobotState == GO_TO_Q){
-            voidObstacle();
-        }else{
-            srt();
-        }
+         srt();
     }else{
         std::cout << "Exploration done" << std::endl;
         drive(0,0);
@@ -120,7 +116,7 @@ void Robot::voidObstacle(){
     //void obstacle
     float angle[8] = {-30.0,-30.0,-30.0,-30.0,60.0,60.0,60.0,60.0};
     float minDist[8] = {0.1,0.2,0.3,0.3,0.3,0.3,0.2,0.1};
-    for(int i = 0; i < 8; i++){
+    for(int i = 1; i < 7; i++){
         if(sonarReadings[i] > 0 && sonarReadings[i] < minDist[i]){
           v = 5.0;
           w += angle[i];
@@ -174,6 +170,9 @@ void Robot::updateSensors()
         int angle = 0;
         while (i < 180){
             laserReadings[angle]=((float*)laserSignal)[i];
+            if(laserReadings[angle] == 0){
+                laserReadings[angle] = -1;
+            }
             i++;
             angle++;
         }
@@ -329,9 +328,10 @@ void Robot::srt(){
             float lastY = currentNode->y;
             currentNode = getParent(tree);
             std::cout << "GOTO PARENT(" << currentNode->x << ", " << currentNode->y << ")" << std::endl;
+
             srtState = Q_FOUND;
             srtRobotState = GO_TO_Q;
-            robotTurning = TURNING_UNDEFINED;
+            indexFindingQ = 0;
 
             if(lastX == currentNode->x && lastY == currentNode->y){
                 robotState = EXPLORATION_DONE;
@@ -339,8 +339,8 @@ void Robot::srt(){
         }
 
         if(srtRobotState == FINDING_THETA){
-             w = MAX_ANGULAR_VELOCITY;
-            if(rand()%10 >= 5 ){
+             w = -MAX_ANGULAR_VELOCITY;
+            if(rand()%10 >= 0 ){
                 theta = robotOrientation[2];
                 srtRobotState = GO_TO_THETA;
                 indexFindingQ++;
@@ -371,13 +371,16 @@ void Robot::srt(){
         }
 
         if(srtRobotState == CHECK_Q){
-//            robotTurning = TURNING_UNDEFINED;
-
             float minLaserReading = 999;
             float minAngle = 0;
-            for (int j = 80 ; j < 100; j++){
-                if(laserReadings[j] > 0 && laserReadings[j] < minLaserReading){
-                    minLaserReading = laserReadings[j];
+            float dist = 999;
+            for (int j = 88 ; j < 92; j++){
+                dist = laserReadings[j];
+                if(dist > MAX_LASER_READING){
+                    dist = MAX_LASER_READING;
+                }
+                if(dist > 0 && dist < minLaserReading){
+                    minLaserReading = dist;
                     minAngle = j;
                 }
             }
@@ -392,23 +395,7 @@ void Robot::srt(){
                 x = robotPosition[0] + (r) * cos(robotOrientation[2] + ((minAngle - 90)*M_PI)/180);
                 y = robotPosition[1] + (r) * sin(robotOrientation[2] + ((minAngle - 90)*M_PI)/180);
 
-                //check point if has obstacle
-                float min = 999, delta = 999, minX = 0, minY = 0;
-                bool obstacle = false;
-                for (int j = 0; j < 180 ; j++){
-                    delta = distance(currentNode->coordinates[j].x,currentNode->coordinates[j].y,x,y);
-                    if( delta < min ){
-                        min = delta;
-                        minX = currentNode->coordinates[j].x;
-                        minY = currentNode->coordinates[j].y;
-                    }
-                }
-
-                if(min < 0.2){
-                    //obstacle is close to the point
-                    obstacle = true;
-                }
-                if(r < DMIN || isVisited(tree,x,y) || obstacle){
+                if(r < DMIN || isVisited(tree,x,y)){
                     srtRobotState = FINDING_THETA;
                 }else{
                     srtState = Q_FOUND;
@@ -446,14 +433,13 @@ void Robot::srt(){
     if(srtState == Q_FOUND){
 
         if(srtRobotState == GO_TO_Q){
-
             dx = currentNode->x - robotPosition[0];
             dy = currentNode->y - robotPosition[1];
             p = dx*dx + dy*dy;
             alfa = atan2(dy,dx) - robotOrientation[2] ;
             beta = - robotOrientation[2] - alfa;
             v = kRho*p;
-            if(v>40)
+            if(v>MAX_LINEAR_VELOCITY)
             {
                 v = MAX_LINEAR_VELOCITY;
             }
@@ -461,28 +447,8 @@ void Robot::srt(){
 
             float delta = atan2(dy,dx)*atan2(dy,dx) - robotOrientation[2]*robotOrientation[2];
 
-            if(robotTurning == TURNING_UNDEFINED){
-                if(w > 0){
-                      robotTurning = TURNING_LEFT;
-                }else{
-                      robotTurning = TURNING_RIGHT;
-                }
-            }
-
-            if(robotTurning == TURNING_RIGHT){
-                w = -MAX_ANGULAR_VELOCITY;
-            }else{
-                w = MAX_ANGULAR_VELOCITY;
-            }
-
-            if(alfa*alfa < MARGIN){
-                robotTurning = TURNING_UNDEFINED;
-                w = 0;
-            }else{
-                //v = 0;
-            }
-            if(p < LIMIAR && w == 0){
-                v = 1.0;
+            if(alfa*alfa > 0.1){
+                v = 0;
             }
 
             //Q_ARRIVED
@@ -493,13 +459,21 @@ void Robot::srt(){
 
                 //update node
                 for(int i = 0; i < 180; i++){
-                    float xPoint = robotPosition[0] + (laserReadings[i]) * cos(robotOrientation[2] + ((i - 90)*M_PI)/180);
-                    float yPoint = robotPosition[1] + (laserReadings[i]) * sin(robotOrientation[2] + ((i - 90)*M_PI)/180);
+                    float dist = laserReadings[i];
+                    if(dist <= 0){
+                        dist = MAX_LASER_READING;
+                    }
+                    float xPoint = robotPosition[0] + (dist) * cos(robotOrientation[2] + ((i - 90)*M_PI)/180);
+                    float yPoint = robotPosition[1] + (dist) * sin(robotOrientation[2] + ((i - 90)*M_PI)/180);
 
                     currentNode->coordinates[i].x = xPoint;
                     currentNode->coordinates[i].y = yPoint;
                 }
                 writePointsPerLaser();
+            }
+
+            if(obstacleCheck()){
+                voidObstacle();
             }
         }
     }
@@ -597,6 +571,7 @@ void Robot::printTree(node * n)
 }
 
 bool Robot::isVisited(node *tree, float x, float y){
+
     bool check = false;
     if ( tree == NULL ){
         return false;
@@ -638,7 +613,7 @@ bool Robot::isVisited(node *tree, float x, float y){
 
         return check;
     }
-
+    return check;
 }
 
 node * Robot::getParent(node *tree){

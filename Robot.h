@@ -63,15 +63,15 @@ private:
     const float L = 0.381;                                   // distance between wheels
     const float R    = 0.0975;                                  // wheel radius
     const float MARGIN = 0.1;
-    const float LIMIAR = 0.3;
+    const float LIMIAR = 0.5;
     const float OBSTACLE_MARGIN = 0.3;
     const float MAX_SONAR_READING = 1.0;
-    const float MAX_LASER_READING = 6.0;
+    const float MAX_LASER_READING = 3.0;
     const float ALPHA = 0.88;
     const float DMIN = 2.0;
 
-    const float MAX_ANGULAR_VELOCITY = 20;
-    const float MAX_LINEAR_VELOCITY = 30;
+    const float MAX_ANGULAR_VELOCITY = 25;
+    const float MAX_LINEAR_VELOCITY = 40;
 
     const int EXPLORATION = 1;
     const int EXPLORATION_DONE = 2;
@@ -80,7 +80,7 @@ private:
     float theta = 0;
     int indexFindingQ = 0;
     const int MAX_I = 1000;
-    const float MARGIN_THETA = 0.05;
+    const float MARGIN_THETA = 0.1;
 
     const int Q_NOT_FOUND = 0;
     const int Q_FOUND = 1;
