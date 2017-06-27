@@ -24,6 +24,9 @@ Robot::Robot(Simulator *sim, std::string name) {
         data =  fopen("nodes.txt", "wt");
             if (data!=NULL)
               fclose(data);
+        data =  fopen("tree.txt", "wt");
+            if (data!=NULL)
+              fclose(data);
     }
 
     /* Get handles of sensors and actuators */
@@ -410,12 +413,25 @@ void Robot::srt(){
 
                     std::cout << "NEW NODE FOUND: (" << x << "," << y << ")" << std::endl;
                     //new node
+
+                    FILE *data =  fopen("tree.txt", "at");
+                    if (data!=NULL)
+                    {
+                        fprintf(data, "%.2f\t",currentNode->x);
+                        fprintf(data, "%.2f\t",currentNode->y);
+                        fprintf(data, "%.2f\t",x);
+                        fprintf(data, "%.2f\t",y);
+                        fprintf(data, "\n");
+                        fflush(data);
+                        fclose(data);
+                    }
+
                     if(currentNode->child == NULL){
                         currentNode = addChild(currentNode, x,y, coordinates);
                     }else{
                         currentNode = addSibling(currentNode, x,y,coordinates);
                     }
-                    FILE *data =  fopen("nodes.txt", "at");
+                    data =  fopen("nodes.txt", "at");
                     if (data!=NULL)
                     {
                         fprintf(data, "%.2f\t",x);
